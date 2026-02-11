@@ -1,0 +1,910 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Random Picker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dela+Gothic+One&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Nunito:wght@400;600;800;900&family=JetBrains+Mono:wght@400;500;700;800&family=EB+Garamond:ital,wght@0,400;0,600;0,700;0,800;1,400;1,700&family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ============================================================
+       1. THEME DEFINITIONS
+       ============================================================ */
+    body.theme-gold {
+      --bg: #09090F; --bg-card: #111119; --bg-input: rgba(255,255,255,0.04);
+      --border: rgba(255,255,255,0.06); --border-strong: rgba(255,255,255,0.12);
+      --primary: #FFB800; --primary-soft: rgba(255,184,0,0.08); --primary-glow: rgba(255,184,0,0.25);
+      --secondary: #FF3366; --danger: #FF3366;
+      --text: #EDEDEF; --text-muted: rgba(255,255,255,0.38);
+      --font-display: 'Dela Gothic One', cursive; --font-body: 'DM Sans', system-ui, sans-serif;
+      --radius: 12px; --radius-sm: 8px; --chip-radius: 100px;
+      --card-shadow: none; --history-entry-bg: rgba(255,255,255,0.02);
+      color-scheme: dark;
+    }
+    body.theme-pastel {
+      --bg: #FFF5F9; --bg-card: #FFFFFF; --bg-input: #FFF5F9;
+      --border: rgba(0,0,0,0.06); --border-strong: rgba(0,0,0,0.10);
+      --primary: #FF6B9D; --primary-soft: rgba(255,107,157,0.12); --primary-glow: rgba(255,107,157,0.3);
+      --secondary: #A78BFA; --danger: #FF6B9D;
+      --text: #2D2235; --text-muted: rgba(45,34,53,0.45);
+      --font-display: 'Nunito', sans-serif; --font-body: 'Nunito', sans-serif;
+      --radius: 20px; --radius-sm: 14px; --chip-radius: 100px;
+      --card-shadow: 0 2px 12px rgba(0,0,0,0.04); --history-entry-bg: #FFF5F9;
+      color-scheme: light;
+    }
+    body.theme-terminal {
+      --bg: #0A0A0A; --bg-card: #0F0F0F; --bg-input: #0A0A0A;
+      --border: rgba(0,255,65,0.1); --border-strong: rgba(0,255,65,0.2);
+      --primary: #00FF41; --primary-soft: rgba(0,255,65,0.08); --primary-glow: rgba(0,255,65,0.3);
+      --secondary: #FFBF00; --danger: #FF3131;
+      --text: #00FF41; --text-muted: rgba(0,255,65,0.4);
+      --font-display: 'JetBrains Mono', monospace; --font-body: 'JetBrains Mono', monospace;
+      --radius: 0px; --radius-sm: 0px; --chip-radius: 0px;
+      --card-shadow: none; --history-entry-bg: transparent;
+      color-scheme: dark;
+    }
+    body.theme-warm {
+      --bg: #FAF7F2; --bg-card: #FFFFFF; --bg-input: #FAF7F2;
+      --border: rgba(120,90,50,0.08); --border-strong: rgba(120,90,50,0.15);
+      --primary: #C2542D; --primary-soft: rgba(194,84,45,0.08); --primary-glow: rgba(194,84,45,0.2);
+      --secondary: #5C6B3C; --danger: #C2542D;
+      --text: #2C251E; --text-muted: rgba(44,37,30,0.4);
+      --font-display: 'EB Garamond', serif; --font-body: 'Outfit', system-ui, sans-serif;
+      --radius: 8px; --radius-sm: 6px; --chip-radius: 6px;
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.03); --history-entry-bg: #FAF7F2;
+      color-scheme: light;
+    }
+
+    /* ============================================================
+       2. RESET & BASE
+       ============================================================ */
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: var(--font-body);
+      background: var(--bg); color: var(--text);
+      min-height: 100vh; overflow-x: hidden;
+      -webkit-font-smoothing: antialiased;
+      transition: background-color 0.35s ease, color 0.35s ease;
+    }
+
+    /* ============================================================
+       3. BACKGROUND EFFECTS (per-theme)
+       ============================================================ */
+    .bg-effects { position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden; }
+    .bg-el { position: absolute; border-radius: 50%; filter: blur(100px); opacity: 0; transition: opacity 0.5s; }
+
+    /* Gold spotlights */
+    .spot-1 { width: 600px; height: 600px; top: -180px; left: -120px;
+      background: radial-gradient(circle, rgba(255,184,0,0.07), transparent 70%);
+      animation: drift1 25s ease-in-out infinite; }
+    .spot-2 { width: 500px; height: 500px; bottom: -100px; right: -100px;
+      background: radial-gradient(circle, rgba(255,51,102,0.06), transparent 70%);
+      animation: drift2 30s ease-in-out infinite; }
+    .theme-gold .spot-1, .theme-gold .spot-2 { opacity: 0.45; }
+
+    /* Pastel blobs */
+    .blob-1 { width: 500px; height: 500px; top: -200px; right: -100px;
+      background: radial-gradient(circle, rgba(167,139,250,0.2), transparent 70%);
+      animation: drift1 20s ease-in-out infinite; }
+    .blob-2 { width: 400px; height: 400px; bottom: -100px; left: -80px;
+      background: radial-gradient(circle, rgba(255,107,157,0.15), transparent 70%);
+      animation: drift2 25s ease-in-out infinite; }
+    .blob-3 { width: 300px; height: 300px; top: 40%; left: 50%;
+      background: radial-gradient(circle, rgba(56,189,248,0.1), transparent 70%);
+      animation: drift3 22s ease-in-out infinite; }
+    .theme-pastel .blob-1, .theme-pastel .blob-2, .theme-pastel .blob-3 { opacity: 0.5; }
+
+    @keyframes drift1 { 0%,100%{transform:translate(0,0)} 33%{transform:translate(120px,80px)} 66%{transform:translate(-60px,140px)} }
+    @keyframes drift2 { 0%,100%{transform:translate(0,0)} 33%{transform:translate(-100px,-80px)} 66%{transform:translate(60px,-120px)} }
+    @keyframes drift3 { 0%,100%{transform:translate(0,0)} 50%{transform:translate(-40px,60px)} }
+
+    /* Terminal scanlines */
+    .theme-terminal::after {
+      content: ''; position: fixed; inset: 0; z-index: 999; pointer-events: none;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.08) 2px, rgba(0,0,0,0.08) 4px);
+    }
+    .theme-terminal::before {
+      content: ''; position: fixed; inset: 0; pointer-events: none;
+      background: radial-gradient(ellipse at center, rgba(0,255,65,0.02), transparent 70%);
+    }
+
+    #confetti { position: fixed; inset: 0; pointer-events: none; z-index: 1000; }
+
+    /* ============================================================
+       4. LAYOUT
+       ============================================================ */
+    .app {
+      position: relative; z-index: 1;
+      max-width: 560px; margin: 0 auto;
+      padding: 48px 20px 80px;
+    }
+
+    /* ============================================================
+       5. HEADER
+       ============================================================ */
+    .header { text-align: center; margin-bottom: 40px; position: relative; }
+    .header h1 {
+      font-family: var(--font-display);
+      font-size: clamp(2.2rem, 7vw, 3.2rem);
+      line-height: 1.1; letter-spacing: -0.02em;
+      color: var(--primary);
+    }
+    .tagline { margin-top: 8px; font-size: 0.9rem; color: var(--text-muted); font-weight: 500; }
+
+    /* Gold: gradient shimmer title */
+    .theme-gold .header h1 {
+      background: linear-gradient(135deg, #FFB800 0%, #FFD866 50%, #FFB800 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      animation: shimmer 4s ease-in-out infinite;
+    }
+    @keyframes shimmer { 0%,100%{background-position:0% 50%} 50%{background-position:100% 50%} }
+
+    /* Pastel: gradient title */
+    .theme-pastel .header h1 {
+      background: linear-gradient(135deg, #FF6B9D, #A78BFA);
+      -webkit-background-clip: text; background-clip: text;
+      -webkit-text-fill-color: transparent;
+      font-weight: 900;
+    }
+
+    /* Terminal: prefix */
+    .theme-terminal .header h1::before { content: '> '; color: var(--text-muted); }
+    .theme-terminal .header h1 { font-size: clamp(1.4rem, 4vw, 1.8rem); letter-spacing: 0; }
+
+    /* Warm: italic serif, divider */
+    .theme-warm .header h1 { font-style: italic; font-weight: 800; letter-spacing: 0; }
+    .theme-warm .header::after {
+      content: ''; display: block; width: 40px; height: 2px;
+      background: var(--primary); margin: 20px auto 0; border-radius: 1px;
+    }
+
+    /* ============================================================
+       6. CARD
+       ============================================================ */
+    .card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 14px;
+      box-shadow: var(--card-shadow);
+      transition: background-color 0.35s, border-color 0.35s, box-shadow 0.35s;
+    }
+    .section-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+    .section-header h2 {
+      font-family: var(--font-body); font-size: 0.7rem; font-weight: 700;
+      letter-spacing: 0.12em; text-transform: uppercase;
+      color: var(--text-muted); display: flex; align-items: center; gap: 8px;
+    }
+    .badge {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 6px;
+      border-radius: 20px; font-size: 0.7rem; font-weight: 700;
+      background: var(--primary-soft); color: var(--primary);
+      transition: background-color 0.35s, color 0.35s;
+    }
+    .theme-gold .badge { background: var(--border); color: var(--text-muted); }
+
+    /* ============================================================
+       7. BUTTONS
+       ============================================================ */
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border: none; border-radius: var(--radius-sm); cursor: pointer;
+      font-family: var(--font-body); font-weight: 700;
+      font-size: 0.82rem; letter-spacing: 0.04em;
+      transition: all 0.2s ease;
+    }
+    .btn:active { transform: scale(0.96); }
+
+    .btn-add { background: var(--primary); color: #fff; padding: 0 20px; height: 46px; }
+    .theme-gold .btn-add { color: #000; }
+    .theme-pastel .btn-add { border-radius: 46px; }
+    .btn-add:hover { filter: brightness(1.1); }
+
+    .btn-small { background: var(--border-strong); color: var(--text); padding: 8px 16px; font-size: 0.75rem; }
+    .btn-small:hover { filter: brightness(1.15); }
+
+    .btn-secondary { background: var(--primary-soft); color: var(--text-muted); padding: 12px 28px; margin-top: 18px; }
+    .btn-secondary:hover { filter: brightness(1.1); color: var(--text); }
+
+    .link-btn {
+      background: none; border: none; cursor: pointer;
+      font-family: var(--font-body); font-size: 0.78rem; color: var(--text-muted);
+      transition: color 0.2s;
+    }
+    .link-btn:hover { color: var(--text); }
+    .link-btn.danger:hover { color: var(--danger); }
+    .theme-warm .link-btn { text-decoration: underline; text-decoration-color: transparent; text-underline-offset: 3px; }
+    .theme-warm .link-btn:hover { text-decoration-color: var(--text-muted); }
+
+    /* ============================================================
+       8. INPUT SECTION
+       ============================================================ */
+    .input-row { display: flex; gap: 8px; }
+    .input-section input[type="text"] {
+      flex: 1; height: 46px; padding: 0 16px;
+      background: var(--bg-input); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text); font-family: var(--font-body);
+      font-size: 0.9rem; outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s, background-color 0.35s;
+    }
+    .input-section input::placeholder { color: var(--text-muted); }
+    .input-section input:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-soft); }
+    .input-section input.shake { animation: shake 0.3s ease; }
+    .theme-pastel .input-section input[type="text"] { border-radius: 46px; border-width: 2px; font-weight: 600; }
+    .theme-pastel .input-section input:focus { box-shadow: 0 0 0 4px var(--primary-soft); }
+
+    .bulk-toggle { margin-top: 10px; text-align: center; }
+    .bulk-area { margin-top: 12px; display: flex; flex-direction: column; gap: 8px; }
+    .bulk-area textarea {
+      width: 100%; padding: 12px; min-height: 100px; max-height: 300px; resize: vertical;
+      background: var(--bg-input); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      color: var(--text); font-family: var(--font-body);
+      font-size: 0.85rem; line-height: 1.6; outline: none;
+      transition: border-color 0.2s;
+    }
+    .bulk-area textarea:focus { border-color: var(--primary); }
+    .bulk-area .btn-small { align-self: flex-end; }
+    .hidden { display: none !important; }
+
+    /* ============================================================
+       9. CHIPS
+       ============================================================ */
+    .items-grid { display: flex; flex-wrap: wrap; gap: 8px; min-height: 42px; }
+    .empty-state {
+      width: 100%; padding: 24px; text-align: center;
+      color: var(--text-muted); font-size: 0.85rem;
+      border: 1px dashed var(--border-strong); border-radius: var(--radius-sm);
+    }
+    .theme-warm .empty-state { font-style: italic; }
+
+    .chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 10px 7px 14px;
+      background: var(--primary-soft); border: 1px solid var(--border-strong);
+      border-radius: var(--chip-radius);
+      font-size: 0.84rem; font-weight: 500;
+      animation: chipEnter 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
+      max-width: 200px;
+      transition: background-color 0.35s, border-color 0.35s;
+    }
+    .theme-gold .chip { background: rgba(255,255,255,0.05); }
+    .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip button {
+      display: flex; align-items: center; justify-content: center;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: rgba(128,128,128,0.12); border: none;
+      color: var(--text-muted); font-size: 14px; line-height: 1;
+      cursor: pointer; transition: all 0.15s; flex-shrink: 0;
+    }
+    .chip button:hover { background: rgba(255,0,0,0.1); color: var(--danger); }
+    .chip.removing { animation: chipExit 0.2s ease forwards; }
+
+    /* Terminal chip prefix */
+    .theme-terminal .chip::before { content: '$ '; color: var(--text-muted); font-size: 0.75rem; flex-shrink: 0; }
+    .theme-terminal .chip button { border-radius: 0; }
+
+    /* Pastel rotating chip colors */
+    .theme-pastel .chip:nth-child(5n+1) { background: rgba(255,107,157,0.12); }
+    .theme-pastel .chip:nth-child(5n+2) { background: rgba(167,139,250,0.12); }
+    .theme-pastel .chip:nth-child(5n+3) { background: rgba(56,189,248,0.12); }
+    .theme-pastel .chip:nth-child(5n+4) { background: rgba(52,211,153,0.12); }
+    .theme-pastel .chip:nth-child(5n+5) { background: rgba(251,146,60,0.12); }
+
+    @keyframes chipEnter { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
+    @keyframes chipExit { to{opacity:0;transform:scale(0.4)} }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+    /* ============================================================
+       10. PICK SECTION
+       ============================================================ */
+    .pick-section { display: flex; flex-direction: column; align-items: center; padding: 32px 0 24px; gap: 20px; }
+    .pick-controls { display: flex; align-items: center; gap: 12px; }
+    .pick-label { font-size: 0.88rem; color: var(--text-muted); font-weight: 500; }
+    .number-control {
+      display: flex; align-items: center;
+      background: var(--bg-card); border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm); overflow: hidden;
+      transition: background-color 0.35s, border-color 0.35s;
+    }
+    .num-btn {
+      width: 36px; height: 36px; display: flex; align-items: center; justify-content: center;
+      background: none; border: none; color: var(--text-muted);
+      font-size: 1.1rem; cursor: pointer; transition: all 0.15s;
+      font-family: var(--font-body);
+    }
+    .num-btn:hover { background: var(--primary-soft); color: var(--text); }
+    .pick-num { width: 32px; text-align: center; font-size: 1rem; font-weight: 700; color: var(--text); }
+
+    /* PICK button - base */
+    .btn-pick {
+      width: 180px; height: 56px;
+      background: var(--primary); color: #fff;
+      font-size: 1.1rem; font-weight: 700; letter-spacing: 0.1em;
+      border-radius: var(--radius); border: none;
+      cursor: pointer; font-family: var(--font-body);
+      box-shadow: 0 4px 24px var(--primary-glow);
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .btn-pick::after { content: none; }
+    .btn-pick:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 32px var(--primary-glow); }
+    .btn-pick:active:not(:disabled) { transform: scale(0.97); }
+    .btn-pick:disabled { opacity: 0.3; cursor: not-allowed; }
+    .btn-pick.ready { animation: pulse 2.5s ease-in-out infinite; }
+    .btn-pick:disabled { animation: none; }
+
+    @keyframes pulse {
+      0%,100% { box-shadow: 0 4px 24px var(--primary-glow); }
+      50% { box-shadow: 0 4px 40px var(--primary-glow), 0 0 50px var(--primary-soft); }
+    }
+
+    /* Gold button: gradient + sheen */
+    .theme-gold .btn-pick {
+      background: linear-gradient(135deg, #FFB800, #FFCA33);
+      color: #000; border-radius: 16px;
+    }
+    .theme-gold .btn-pick::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(135deg, transparent 40%, rgba(255,255,255,0.2) 50%, transparent 60%);
+      background-size: 200% 100%; animation: btnSheen 3s ease-in-out infinite;
+    }
+    .theme-gold .btn-pick:disabled::after { animation: none; }
+    @keyframes btnSheen { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* Pastel button: gradient pill */
+    .theme-pastel .btn-pick {
+      background: linear-gradient(135deg, #FF6B9D, #A78BFA);
+      border-radius: 58px; width: 200px; height: 58px;
+    }
+
+    /* Terminal button: outlined */
+    .theme-terminal .btn-pick {
+      background: transparent; border: 2px solid var(--primary);
+      color: var(--primary); text-shadow: 0 0 10px var(--primary-glow);
+      box-shadow: none;
+    }
+    .theme-terminal .btn-pick:hover:not(:disabled) {
+      background: var(--primary-soft);
+      box-shadow: 0 0 20px var(--primary-soft), inset 0 0 20px var(--primary-soft);
+    }
+    .theme-terminal .btn-pick.ready { animation: termPulse 2s ease-in-out infinite; }
+    @keyframes termPulse {
+      0%,100%{box-shadow:none} 50%{box-shadow:0 0 20px var(--primary-soft),0 0 40px rgba(0,255,65,0.05)}
+    }
+
+    /* Warm button: solid, simple */
+    .theme-warm .btn-pick { box-shadow: 0 2px 8px var(--primary-glow); }
+
+    /* ============================================================
+       11. RESULT SECTION
+       ============================================================ */
+    .result-section { text-align: center; animation: fadeInUp 0.4s ease both; }
+    .result-label {
+      font-family: var(--font-display); font-size: 0.75rem; letter-spacing: 0.15em;
+      color: var(--primary); margin-bottom: 18px;
+    }
+    .theme-warm .result-label { font-style: italic; font-size: 0.85rem; letter-spacing: 0.08em; }
+    .theme-terminal .result-label { color: var(--secondary); }
+
+    .result-stage { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; min-height: 70px; }
+    .roulette-card {
+      min-width: 130px; padding: 18px 28px;
+      background: var(--primary-soft); border: 1px solid var(--border-strong);
+      border-radius: var(--radius); font-size: 1.15rem; font-weight: 700;
+      color: var(--text); transition: all 0.1s;
+    }
+    .roulette-card.cycling { animation: rouletteTick 0.08s ease both; }
+    .roulette-card.winner {
+      animation: winnerReveal 0.5s cubic-bezier(0.34,1.56,0.64,1) both;
+      background: var(--primary-soft); border-color: var(--primary);
+      box-shadow: 0 0 40px var(--primary-glow);
+      color: var(--primary); font-size: 1.3rem;
+    }
+    .theme-warm .roulette-card { font-family: 'EB Garamond', serif; font-size: 1.2rem; }
+    .theme-warm .roulette-card.winner { font-size: 1.5rem; font-style: italic; }
+
+    @keyframes rouletteTick { 0%{transform:translateY(-6px);opacity:0.4} 100%{transform:translateY(0);opacity:1} }
+    @keyframes winnerReveal { 0%{transform:scale(0.6);opacity:0} 60%{transform:scale(1.08)} 100%{transform:scale(1);opacity:1} }
+    @keyframes fadeInUp { from{opacity:0;transform:translateY(16px)} to{opacity:1;transform:translateY(0)} }
+
+    /* ============================================================
+       12. HISTORY
+       ============================================================ */
+    .history-section { margin-top: 8px; }
+    .history-list { display: flex; flex-direction: column; gap: 5px; }
+    .history-entry {
+      display: flex; align-items: baseline; gap: 12px;
+      padding: 10px 14px; background: var(--history-entry-bg);
+      border-radius: var(--radius-sm);
+      animation: fadeInUp 0.3s ease both; font-size: 0.84rem;
+    }
+    .history-time { color: var(--text-muted); font-size: 0.72rem; flex-shrink: 0; font-variant-numeric: tabular-nums; }
+    .history-picks { color: var(--primary); font-weight: 600; }
+    .history-meta { color: var(--text-muted); font-size: 0.72rem; margin-left: auto; flex-shrink: 0; }
+
+    /* ============================================================
+       13. TOAST
+       ============================================================ */
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 100px;
+      background: var(--bg-card); border: 1px solid var(--border-strong);
+      font-size: 0.82rem; color: var(--text-muted);
+      font-family: var(--font-body);
+      z-index: 2000; pointer-events: none;
+      animation: toastIn 0.3s ease, toastOut 0.3s ease 1.5s forwards;
+    }
+    @keyframes toastIn { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+    @keyframes toastOut { to{opacity:0;transform:translateX(-50%) translateY(-8px)} }
+
+    /* ============================================================
+       14. THEME PICKER
+       ============================================================ */
+    .theme-picker { position: fixed; top: 16px; right: 16px; z-index: 500; }
+    .theme-toggle {
+      width: 40px; height: 40px; border-radius: 10px;
+      background: var(--bg-card); border: 1px solid var(--border-strong);
+      cursor: pointer; display: grid; grid-template-columns: 1fr 1fr;
+      gap: 3px; padding: 9px;
+      transition: background-color 0.35s, border-color 0.35s, transform 0.15s;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    .theme-toggle:hover { transform: scale(1.06); }
+    .theme-toggle i { display: block; border-radius: 2px; }
+
+    .theme-menu {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: var(--bg-card); border: 1px solid var(--border-strong);
+      border-radius: var(--radius); padding: 6px; min-width: 190px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.15);
+      opacity: 0; visibility: hidden; transform: translateY(-4px) scale(0.96);
+      transition: all 0.2s ease;
+    }
+    .theme-menu.open {
+      opacity: 1; visibility: visible; transform: translateY(0) scale(1);
+    }
+
+    .theme-option {
+      display: flex; align-items: center; gap: 10px;
+      width: 100%; padding: 10px 12px; border: none;
+      background: transparent; border-radius: calc(var(--radius) - 4px);
+      cursor: pointer; font-family: var(--font-body);
+      font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+      transition: all 0.15s;
+    }
+    .theme-option:hover { background: var(--primary-soft); color: var(--text); }
+    .theme-option.active { color: var(--primary); }
+    .theme-option.active::after { content: ''; width:6px; height:6px; border-radius:50%; background:var(--primary); margin-left:auto; flex-shrink:0; }
+
+    .theme-swatches { display: flex; gap: 4px; flex-shrink: 0; }
+    .theme-swatches i { display: block; width: 14px; height: 14px; border-radius: 4px; border: 1px solid rgba(128,128,128,0.15); }
+
+    /* ============================================================
+       15. RESPONSIVE
+       ============================================================ */
+    @media (max-width: 480px) {
+      .app { padding: 32px 14px 60px; }
+      .header h1 { font-size: 2rem; }
+      .theme-terminal .header h1 { font-size: 1.2rem; }
+      .btn-pick { width: 160px; height: 52px; font-size: 1rem; }
+      .theme-pastel .btn-pick { width: 170px; }
+      .chip { font-size: 0.8rem; }
+      .roulette-card { min-width: 110px; padding: 14px 20px; font-size: 1rem; }
+      .roulette-card.winner { font-size: 1.1rem; }
+      .theme-picker { top: 12px; right: 12px; }
+    }
+  </style>
+</head>
+<body class="theme-gold">
+
+  <canvas id="confetti"></canvas>
+
+  <div class="bg-effects">
+    <div class="bg-el spot-1"></div>
+    <div class="bg-el spot-2"></div>
+    <div class="bg-el blob-1"></div>
+    <div class="bg-el blob-2"></div>
+    <div class="bg-el blob-3"></div>
+  </div>
+
+  <!-- Theme Picker -->
+  <div class="theme-picker" id="themePicker">
+    <button class="theme-toggle" id="themeToggle" aria-label="Change theme">
+      <i style="background:#FFB800"></i>
+      <i style="background:#FF6B9D"></i>
+      <i style="background:#00FF41"></i>
+      <i style="background:#C2542D"></i>
+    </button>
+    <div class="theme-menu" id="themeMenu">
+      <button class="theme-option active" data-theme="gold">
+        <span class="theme-swatches"><i style="background:#FFB800"></i><i style="background:#FF3366"></i><i style="background:#09090F"></i></span>
+        Gold
+      </button>
+      <button class="theme-option" data-theme="pastel">
+        <span class="theme-swatches"><i style="background:#FF6B9D"></i><i style="background:#A78BFA"></i><i style="background:#FFF5F9"></i></span>
+        Pastel
+      </button>
+      <button class="theme-option" data-theme="terminal">
+        <span class="theme-swatches"><i style="background:#00FF41"></i><i style="background:#FFBF00"></i><i style="background:#0A0A0A"></i></span>
+        Terminal
+      </button>
+      <button class="theme-option" data-theme="warm">
+        <span class="theme-swatches"><i style="background:#C2542D"></i><i style="background:#5C6B3C"></i><i style="background:#FAF7F2"></i></span>
+        Warm
+      </button>
+    </div>
+  </div>
+
+  <div class="app">
+    <header class="header">
+      <h1>RANDOM<br>PICKER</h1>
+      <p class="tagline">Drop your options. Let fate decide.</p>
+    </header>
+
+    <section class="card input-section">
+      <div class="input-row">
+        <input type="text" id="itemInput" placeholder="Type an option and hit Enter" autocomplete="off" spellcheck="false">
+        <button class="btn btn-add" id="addBtn">ADD</button>
+      </div>
+      <div class="bulk-toggle"><button class="link-btn" id="bulkToggle">or paste a list</button></div>
+      <div class="bulk-area hidden" id="bulkArea">
+        <textarea id="bulkInput" placeholder="One item per line&#10;Pizza&#10;Sushi&#10;Tacos&#10;..." rows="4"></textarea>
+        <button class="btn btn-small" id="bulkAddBtn">Add All</button>
+      </div>
+    </section>
+
+    <section class="card items-section">
+      <div class="section-header">
+        <h2>OPTIONS <span class="badge" id="itemCount">0</span></h2>
+        <button class="link-btn danger" id="clearBtn">Clear All</button>
+      </div>
+      <div class="items-grid" id="itemsGrid">
+        <div class="empty-state">Add some options above to get started</div>
+      </div>
+    </section>
+
+    <section class="pick-section">
+      <div class="pick-controls">
+        <span class="pick-label">Pick</span>
+        <div class="number-control">
+          <button class="num-btn" id="minusBtn" aria-label="Decrease pick count">−</button>
+          <span class="pick-num" id="pickNum">1</span>
+          <button class="num-btn" id="plusBtn" aria-label="Increase pick count">+</button>
+        </div>
+        <span class="pick-label">item(s)</span>
+      </div>
+      <button class="btn-pick" id="pickBtn" disabled>PICK</button>
+    </section>
+
+    <section class="card result-section hidden" id="resultSection">
+      <div class="result-label" id="resultLabel">THE CHOSEN ONE</div>
+      <div class="result-stage" id="resultStage"></div>
+      <button class="btn btn-secondary" id="pickAgainBtn">Pick Again</button>
+    </section>
+
+    <section class="card history-section hidden" id="historySection">
+      <div class="section-header">
+        <h2>HISTORY</h2>
+        <button class="link-btn danger" id="clearHistoryBtn">Clear</button>
+      </div>
+      <div class="history-list" id="historyList"></div>
+    </section>
+  </div>
+
+<script>
+/* ======== Confetti ======== */
+class ConfettiEngine {
+  constructor(canvas) {
+    this.canvas = canvas;
+    this.ctx = canvas.getContext('2d');
+    this.particles = [];
+    this.running = false;
+    this.colors = ['#FFB800','#FF3366','#00E5FF','#7C4DFF','#00E676','#FF8A65'];
+    this.resize();
+    let t; window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => this.resize(), 150); });
+  }
+  resize() {
+    const d = window.devicePixelRatio || 1;
+    this.canvas.width = window.innerWidth * d;
+    this.canvas.height = window.innerHeight * d;
+    this.canvas.style.width = window.innerWidth + 'px';
+    this.canvas.style.height = window.innerHeight + 'px';
+    this.ctx.setTransform(d, 0, 0, d, 0, 0);
+  }
+  burst(x, y, count = 80) {
+    for (let i = 0; i < count; i++) {
+      const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.5;
+      const speed = 6 + Math.random() * 10;
+      this.particles.push({
+        x, y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed - 4,
+        size: 3 + Math.random() * 5,
+        color: this.colors[Math.floor(Math.random() * this.colors.length)],
+        rotation: Math.random() * 360, rotationSpeed: (Math.random() - 0.5) * 12,
+        gravity: 0.18 + Math.random() * 0.08, drag: 0.975 + Math.random() * 0.015,
+        opacity: 1, isRect: Math.random() > 0.4,
+      });
+    }
+    if (!this.running) this.animate();
+  }
+  animate() {
+    this.running = true;
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    this.particles = this.particles.filter(p => p.opacity > 0.01 && p.y < this.canvas.height + 40);
+    if (this.particles.length === 0) { this.running = false; this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height); return; }
+    for (const p of this.particles) {
+      p.vy += p.gravity; p.vx *= p.drag; p.vy *= p.drag;
+      p.x += p.vx; p.y += p.vy; p.rotation += p.rotationSpeed;
+      if (p.y > this.canvas.height - 80) p.opacity *= 0.96;
+      this.ctx.save(); this.ctx.translate(p.x, p.y);
+      this.ctx.rotate(p.rotation * Math.PI / 180);
+      this.ctx.globalAlpha = p.opacity; this.ctx.fillStyle = p.color;
+      if (p.isRect) this.ctx.fillRect(-p.size/2, -p.size/4, p.size, p.size/2);
+      else { this.ctx.beginPath(); this.ctx.arc(0, 0, p.size/2.5, 0, Math.PI*2); this.ctx.fill(); }
+      this.ctx.restore();
+    }
+    requestAnimationFrame(() => this.animate());
+  }
+}
+
+/* ======== Theme Manager ======== */
+const THEME_COLORS = {
+  gold:     ['#FFB800','#FF3366','#00E5FF','#7C4DFF','#00E676','#FF8A65'],
+  pastel:   ['#FF6B9D','#A78BFA','#38BDF8','#34D399','#FB923C','#F472B6'],
+  terminal: ['#00FF41','#FFBF00','#00E5FF','#FF3131','#A78BFA'],
+  warm:     ['#C2542D','#5C6B3C','#D4956A','#8B6F47','#B8860B','#CD853F'],
+};
+
+class ThemeManager {
+  constructor(confetti) {
+    this.confetti = confetti;
+    this.current = 'gold';
+    this.menu = document.getElementById('themeMenu');
+    this.toggle = document.getElementById('themeToggle');
+    this.options = document.querySelectorAll('.theme-option');
+
+    this.loadTheme();
+    this.bindEvents();
+  }
+  loadTheme() {
+    try { const t = localStorage.getItem('rp_theme'); if (t && THEME_COLORS[t]) this.current = t; } catch {}
+    this.applyTheme(this.current);
+  }
+  applyTheme(name) {
+    this.current = name;
+    document.body.className = `theme-${name}`;
+    document.documentElement.style.colorScheme = (name === 'gold' || name === 'terminal') ? 'dark' : 'light';
+    this.confetti.colors = THEME_COLORS[name];
+    this.options.forEach(o => o.classList.toggle('active', o.dataset.theme === name));
+    try { localStorage.setItem('rp_theme', name); } catch {}
+  }
+  bindEvents() {
+    this.toggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.menu.classList.toggle('open');
+    });
+    this.options.forEach(o => {
+      o.addEventListener('click', () => {
+        this.applyTheme(o.dataset.theme);
+        this.menu.classList.remove('open');
+      });
+    });
+    document.addEventListener('click', (e) => {
+      if (!e.target.closest('.theme-picker')) this.menu.classList.remove('open');
+    });
+  }
+}
+
+/* ======== Random Picker ======== */
+class RandomPicker {
+  constructor() {
+    this.items = []; this.pickCount = 1; this.history = [];
+    this.isAnimating = false;
+    this.confetti = new ConfettiEngine(document.getElementById('confetti'));
+    this.themeManager = new ThemeManager(this.confetti);
+    this.dom = {
+      itemInput: document.getElementById('itemInput'),
+      addBtn: document.getElementById('addBtn'),
+      bulkToggle: document.getElementById('bulkToggle'),
+      bulkArea: document.getElementById('bulkArea'),
+      bulkInput: document.getElementById('bulkInput'),
+      bulkAddBtn: document.getElementById('bulkAddBtn'),
+      itemsGrid: document.getElementById('itemsGrid'),
+      itemCount: document.getElementById('itemCount'),
+      clearBtn: document.getElementById('clearBtn'),
+      minusBtn: document.getElementById('minusBtn'),
+      plusBtn: document.getElementById('plusBtn'),
+      pickNum: document.getElementById('pickNum'),
+      pickBtn: document.getElementById('pickBtn'),
+      resultSection: document.getElementById('resultSection'),
+      resultLabel: document.getElementById('resultLabel'),
+      resultStage: document.getElementById('resultStage'),
+      pickAgainBtn: document.getElementById('pickAgainBtn'),
+      historySection: document.getElementById('historySection'),
+      historyList: document.getElementById('historyList'),
+      clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+    };
+    this.loadState(); this.bindEvents(); this.render();
+  }
+
+  bindEvents() {
+    this.dom.itemInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && !e.isComposing) { e.preventDefault(); this.addItemFromInput(); }
+    });
+    this.dom.addBtn.addEventListener('click', () => this.addItemFromInput());
+    this.dom.bulkToggle.addEventListener('click', () => {
+      this.dom.bulkArea.classList.toggle('hidden');
+      this.dom.bulkToggle.textContent = this.dom.bulkArea.classList.contains('hidden') ? 'or paste a list' : 'hide paste area';
+    });
+    this.dom.bulkAddBtn.addEventListener('click', () => this.addBulkItems());
+    this.dom.clearBtn.addEventListener('click', () => this.clearAll());
+    this.dom.minusBtn.addEventListener('click', () => this.setPickCount(this.pickCount - 1));
+    this.dom.plusBtn.addEventListener('click', () => this.setPickCount(this.pickCount + 1));
+    this.dom.pickBtn.addEventListener('click', () => this.pick());
+    this.dom.pickAgainBtn.addEventListener('click', () => this.pick());
+    this.dom.clearHistoryBtn.addEventListener('click', () => this.clearHistory());
+  }
+
+  addItemFromInput() {
+    const v = this.dom.itemInput.value.trim();
+    if (!v) return;
+    if (this.addItem(v)) { this.dom.itemInput.value = ''; this.dom.itemInput.focus(); }
+  }
+  addItem(text) {
+    const n = text.trim();
+    if (!n) return false;
+    if (n.length > 200) { this.showToast('Item name is too long (max 200)'); return false; }
+    if (this.items.length >= 500) { this.showToast('Maximum 500 items'); return false; }
+    if (this.items.some(i => i.toLowerCase() === n.toLowerCase())) {
+      this.dom.itemInput.classList.add('shake');
+      setTimeout(() => this.dom.itemInput.classList.remove('shake'), 300);
+      this.showToast('Duplicate item'); return false;
+    }
+    this.items.push(n); this.saveState(); this.render(); return true;
+  }
+  addBulkItems() {
+    const lines = this.dom.bulkInput.value.split('\n'); let added = 0;
+    for (const l of lines) {
+      const t = l.trim();
+      if (t && t.length <= 200 && this.items.length < 500 && !this.items.some(i => i.toLowerCase() === t.toLowerCase())) {
+        this.items.push(t); added++;
+      }
+    }
+    if (added > 0) { this.dom.bulkInput.value = ''; this.saveState(); this.render(); this.showToast(`Added ${added} item${added > 1 ? 's' : ''}`); }
+    else this.showToast('No new items to add');
+  }
+  removeItem(index) {
+    const item = this.items[index];
+    const chip = this.dom.itemsGrid.children[index];
+    if (chip) {
+      chip.classList.add('removing');
+      const b = chip.querySelector('button'); if (b) b.disabled = true;
+      setTimeout(() => {
+        const ci = this.items.indexOf(item);
+        if (ci !== -1) this.items.splice(ci, 1);
+        this.setPickCount(this.pickCount); this.saveState(); this.render();
+      }, 200);
+    }
+  }
+  clearAll() { this.items = []; this.pickCount = 1; this.dom.resultSection.classList.add('hidden'); this.saveState(); this.render(); }
+
+  setPickCount(n) {
+    const max = Math.max(1, this.items.length);
+    this.pickCount = Math.max(1, Math.min(n, max));
+    this.dom.pickNum.textContent = this.pickCount;
+    this.saveState(); this.updatePickButton();
+  }
+
+  async pick() {
+    if (this.isAnimating || this.items.length === 0) return;
+    this.isAnimating = true; this.dom.pickBtn.disabled = true; this.dom.pickBtn.classList.remove('ready');
+    const pool = [...this.items];
+    for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
+    const winners = pool.slice(0, this.pickCount);
+    this.dom.resultSection.classList.remove('hidden');
+    this.dom.resultLabel.textContent = winners.length === 1 ? 'THE CHOSEN ONE' : `THE CHOSEN ${winners.length}`;
+    this.dom.resultStage.innerHTML = '';
+    this.dom.resultSection.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    for (let i = 0; i < winners.length; i++) { if (i > 0) await this.sleep(350); await this.animateRoulette(winners[i]); }
+    const rect = this.dom.resultStage.getBoundingClientRect();
+    this.confetti.burst(rect.left + rect.width / 2, rect.top + rect.height / 2, 60 + winners.length * 20);
+    this.addToHistory(winners);
+    this.isAnimating = false; this.updatePickButton();
+  }
+  async animateRoulette(winner) {
+    const card = document.createElement('div'); card.className = 'roulette-card';
+    card.textContent = this.items[0]; this.dom.resultStage.appendChild(card);
+    const totalDuration = 1800, startInterval = 45, endInterval = 200;
+    const startTime = performance.now(); let lastShown = '';
+    while (true) {
+      const elapsed = performance.now() - startTime; if (elapsed >= totalDuration) break;
+      const progress = elapsed / totalDuration;
+      const eased = 1 - Math.pow(1 - progress, 2.5);
+      const interval = startInterval + (endInterval - startInterval) * eased;
+      const candidates = this.items.filter(i => i !== winner && i !== lastShown);
+      if (candidates.length === 0) break;
+      const ri = candidates[Math.floor(Math.random() * candidates.length)];
+      lastShown = ri; card.textContent = ri;
+      card.classList.remove('cycling'); void card.offsetWidth; card.classList.add('cycling');
+      await this.sleep(interval);
+    }
+    card.textContent = winner; card.classList.remove('cycling'); card.classList.add('winner');
+  }
+
+  addToHistory(winners) {
+    this.history.unshift({ picks: [...winners], total: this.items.length, time: Date.now() });
+    if (this.history.length > 50) this.history.pop();
+    this.saveState(); this.renderHistory();
+  }
+  clearHistory() { this.history = []; this.saveState(); this.renderHistory(); }
+
+  render() { this.renderItems(); this.renderHistory(); this.updatePickButton(); }
+  renderItems() {
+    const g = this.dom.itemsGrid; g.innerHTML = '';
+    if (this.items.length === 0) {
+      g.innerHTML = '<div class="empty-state">Add some options above to get started</div>';
+      this.dom.itemCount.textContent = '0'; return;
+    }
+    this.dom.itemCount.textContent = this.items.length;
+    this.items.forEach((item, i) => {
+      const chip = document.createElement('div'); chip.className = 'chip';
+      chip.style.animationDelay = `${Math.min(i * 30, 300)}ms`;
+      const span = document.createElement('span'); span.textContent = item; span.title = item;
+      const btn = document.createElement('button'); btn.innerHTML = '&times;';
+      btn.setAttribute('aria-label', `Remove ${item}`);
+      btn.addEventListener('click', () => this.removeItem(i));
+      chip.appendChild(span); chip.appendChild(btn); g.appendChild(chip);
+    });
+    this.setPickCount(this.pickCount);
+  }
+  renderHistory() {
+    const l = this.dom.historyList; l.innerHTML = '';
+    if (this.history.length === 0) { this.dom.historySection.classList.add('hidden'); return; }
+    this.dom.historySection.classList.remove('hidden');
+    this.history.forEach((entry, i) => {
+      const div = document.createElement('div'); div.className = 'history-entry';
+      div.style.animationDelay = `${i * 40}ms`;
+      const d = new Date(entry.time);
+      const time = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      const ts = document.createElement('span'); ts.className = 'history-time'; ts.textContent = time;
+      const ps = document.createElement('span'); ps.className = 'history-picks'; ps.textContent = entry.picks.join(', ');
+      const ms = document.createElement('span'); ms.className = 'history-meta'; ms.textContent = `from ${entry.total}`;
+      div.appendChild(ts); div.appendChild(ps); div.appendChild(ms); l.appendChild(div);
+    });
+  }
+  updatePickButton() {
+    const can = this.items.length > 0 && !this.isAnimating;
+    this.dom.pickBtn.disabled = !can; this.dom.pickBtn.classList.toggle('ready', can);
+  }
+  showToast(msg) {
+    const ex = document.querySelector('.toast'); if (ex) ex.remove();
+    const el = document.createElement('div'); el.className = 'toast'; el.textContent = msg;
+    document.body.appendChild(el); setTimeout(() => el.remove(), 2000);
+  }
+  saveState() {
+    try {
+      localStorage.setItem('rp_items', JSON.stringify(this.items));
+      localStorage.setItem('rp_history', JSON.stringify(this.history));
+      localStorage.setItem('rp_pickCount', JSON.stringify(this.pickCount));
+    } catch (e) { console.warn('Save failed:', e); }
+  }
+  loadState() {
+    try {
+      const items = JSON.parse(localStorage.getItem('rp_items'));
+      if (Array.isArray(items)) this.items = items.filter(i => typeof i === 'string' && i.trim().length > 0);
+      const history = JSON.parse(localStorage.getItem('rp_history'));
+      if (Array.isArray(history)) this.history = history.filter(h =>
+        h && Array.isArray(h.picks) && h.picks.every(p => typeof p === 'string') && typeof h.total === 'number' && typeof h.time === 'number');
+      const pc = JSON.parse(localStorage.getItem('rp_pickCount'));
+      if (typeof pc === 'number' && pc >= 1) this.pickCount = Math.min(pc, Math.max(1, this.items.length));
+    } catch (e) { console.warn('Load failed:', e); this.items = []; this.history = []; }
+  }
+  sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+}
+
+new RandomPicker();
+</script>
+</body>
+</html>
