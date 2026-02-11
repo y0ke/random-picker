@@ -269,10 +269,12 @@
       font-size: 0.84rem; font-weight: 500;
       animation: chipEnter 0.25s cubic-bezier(0.34,1.56,0.64,1) both;
       max-width: 200px;
-      transition: background-color 0.35s, border-color 0.35s;
+      transition: all 0.3s ease;
+      cursor: pointer; user-select: none;
     }
+    .chip:not(.excluded):hover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary-soft); }
     .theme-gold .chip { background: rgba(255,255,255,0.05); }
-    .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; transition: all 0.3s; }
     .chip button {
       display: flex; align-items: center; justify-content: center;
       width: 20px; height: 20px; border-radius: 50%;
@@ -297,6 +299,44 @@
     @keyframes chipEnter { from{opacity:0;transform:scale(0.5)} to{opacity:1;transform:scale(1)} }
     @keyframes chipExit { to{opacity:0;transform:scale(0.4)} }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+    /* Excluded chips */
+    .chip.excluded { opacity: 0.38; border-style: dashed; }
+    .chip.excluded span { text-decoration: line-through; text-decoration-thickness: 1.5px; }
+    .chip.excluded:hover { opacity: 0.55; }
+    .theme-gold .chip.excluded { background: rgba(255,255,255,0.02); border-color: rgba(255,255,255,0.08); }
+    .theme-pastel .chip.excluded { background: rgba(0,0,0,0.03) !important; border-color: rgba(0,0,0,0.08); }
+    .theme-terminal .chip.excluded::before { content: '# '; color: var(--danger); }
+    .theme-terminal .chip.excluded { border-color: rgba(255,49,49,0.15); }
+    .theme-terminal .chip.excluded span { text-decoration-color: var(--danger); }
+    .theme-warm .chip.excluded span { font-style: italic; }
+    @keyframes chipExclude { 0%{transform:scale(1)} 30%{transform:scale(0.92)} 100%{transform:scale(1)} }
+    @keyframes chipInclude { 0%{transform:scale(1)} 30%{transform:scale(1.06)} 100%{transform:scale(1)} }
+    .chip.just-excluded { animation: chipExclude 0.3s ease; }
+    .chip.just-included { animation: chipInclude 0.3s ease; }
+
+    /* Active count badge */
+    .badge-active {
+      display: inline-flex; align-items: center; justify-content: center;
+      min-width: 22px; height: 22px; padding: 0 8px;
+      border-radius: 20px; font-size: 0.65rem; font-weight: 700;
+      background: var(--primary-soft); color: var(--primary);
+      transition: all 0.35s; margin-left: 4px;
+    }
+    .badge-active.has-excluded { background: rgba(255,160,0,0.12); color: #FFA000; }
+    .theme-pastel .badge-active.has-excluded { background: rgba(167,139,250,0.15); color: #A78BFA; }
+    .theme-terminal .badge-active.has-excluded { background: rgba(255,191,0,0.12); color: #FFBF00; }
+    .theme-warm .badge-active.has-excluded { background: rgba(92,107,60,0.12); color: #5C6B3C; }
+
+    /* Exclusion hint */
+    .exclusion-hint {
+      text-align: center; margin-top: 10px;
+      font-size: 0.72rem; color: var(--text-muted); opacity: 0.6;
+    }
+    .exclusion-hint svg {
+      width: 12px; height: 12px; vertical-align: -1px; margin-right: 3px;
+      fill: none; stroke: currentColor; stroke-width: 2;
+    }
 
     /* ============================================================
        10. PICK SECTION
@@ -558,11 +598,15 @@
 
     <section class="card items-section">
       <div class="section-header">
-        <h2>OPTIONS <span class="badge" id="itemCount">0</span></h2>
+        <h2>OPTIONS <span class="badge" id="itemCount">0</span><span class="badge-active" id="activeCount" style="display:none"></span></h2>
         <button class="link-btn danger" id="clearBtn">Clear All</button>
       </div>
       <div class="items-grid" id="itemsGrid">
         <div class="empty-state">Add some options above to get started</div>
+      </div>
+      <div class="exclusion-hint hidden" id="exclusionHint">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="4" y1="4" x2="20" y2="20"/></svg>
+        Click to temporarily exclude from picks
       </div>
     </section>
 
@@ -725,6 +769,8 @@ class RandomPicker {
       historySection: document.getElementById('historySection'),
       historyList: document.getElementById('historyList'),
       clearHistoryBtn: document.getElementById('clearHistoryBtn'),
+      activeCount: document.getElementById('activeCount'),
+      exclusionHint: document.getElementById('exclusionHint'),
     };
     this.loadState(); this.bindEvents(); this.render();
   }
@@ -757,19 +803,19 @@ class RandomPicker {
     if (!n) return false;
     if (n.length > 200) { this.showToast('Item name is too long (max 200)'); return false; }
     if (this.items.length >= 500) { this.showToast('Maximum 500 items'); return false; }
-    if (this.items.some(i => i.toLowerCase() === n.toLowerCase())) {
+    if (this.items.some(i => i.name.toLowerCase() === n.toLowerCase())) {
       this.dom.itemInput.classList.add('shake');
       setTimeout(() => this.dom.itemInput.classList.remove('shake'), 300);
       this.showToast('Duplicate item'); return false;
     }
-    this.items.push(n); this.saveState(); this.render(); return true;
+    this.items.push({ name: n, excluded: false }); this.saveState(); this.render(); return true;
   }
   addBulkItems() {
     const lines = this.dom.bulkInput.value.split('\n'); let added = 0;
     for (const l of lines) {
       const t = l.trim();
-      if (t && t.length <= 200 && this.items.length < 500 && !this.items.some(i => i.toLowerCase() === t.toLowerCase())) {
-        this.items.push(t); added++;
+      if (t && t.length <= 200 && this.items.length < 500 && !this.items.some(i => i.name.toLowerCase() === t.toLowerCase())) {
+        this.items.push({ name: t, excluded: false }); added++;
       }
     }
     if (added > 0) { this.dom.bulkInput.value = ''; this.saveState(); this.render(); this.showToast(`Added ${added} item${added > 1 ? 's' : ''}`); }
@@ -788,19 +834,39 @@ class RandomPicker {
       }, 200);
     }
   }
+  toggleExclude(index) {
+    if (this.isAnimating) return;
+    const item = this.items[index];
+    if (!item) return;
+    item.excluded = !item.excluded;
+    const chip = this.dom.itemsGrid.children[index];
+    if (chip) {
+      chip.classList.toggle('excluded', item.excluded);
+      chip.classList.remove('just-excluded', 'just-included');
+      void chip.offsetWidth;
+      chip.classList.add(item.excluded ? 'just-excluded' : 'just-included');
+      const span = chip.querySelector('span');
+      if (span) span.title = item.excluded ? `${item.name} (excluded)` : item.name;
+    }
+    this.setPickCount(this.pickCount);
+    this.saveState(); this.updateActiveBadge(); this.updatePickButton();
+    if (this.getActiveItems().length === 0) this.showToast('All items excluded');
+  }
   clearAll() { this.items = []; this.pickCount = 1; this.dom.resultSection.classList.add('hidden'); this.saveState(); this.render(); }
+  getActiveItems() { return this.items.filter(i => !i.excluded); }
 
   setPickCount(n) {
-    const max = Math.max(1, this.items.length);
+    const max = Math.max(1, this.getActiveItems().length);
     this.pickCount = Math.max(1, Math.min(n, max));
     this.dom.pickNum.textContent = this.pickCount;
     this.saveState(); this.updatePickButton();
   }
 
   async pick() {
-    if (this.isAnimating || this.items.length === 0) return;
+    const active = this.getActiveItems();
+    if (this.isAnimating || active.length === 0) return;
     this.isAnimating = true; this.dom.pickBtn.disabled = true; this.dom.pickBtn.classList.remove('ready');
-    const pool = [...this.items];
+    const pool = active.map(i => i.name);
     for (let i = pool.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [pool[i], pool[j]] = [pool[j], pool[i]]; }
     const winners = pool.slice(0, this.pickCount);
     this.dom.resultSection.classList.remove('hidden');
@@ -814,8 +880,9 @@ class RandomPicker {
     this.isAnimating = false; this.updatePickButton();
   }
   async animateRoulette(winner) {
+    const activeNames = this.getActiveItems().map(i => i.name);
     const card = document.createElement('div'); card.className = 'roulette-card';
-    card.textContent = this.items[0]; this.dom.resultStage.appendChild(card);
+    card.textContent = activeNames[0]; this.dom.resultStage.appendChild(card);
     const totalDuration = 1800, startInterval = 45, endInterval = 200;
     const startTime = performance.now(); let lastShown = '';
     while (true) {
@@ -823,7 +890,7 @@ class RandomPicker {
       const progress = elapsed / totalDuration;
       const eased = 1 - Math.pow(1 - progress, 2.5);
       const interval = startInterval + (endInterval - startInterval) * eased;
-      const candidates = this.items.filter(i => i !== winner && i !== lastShown);
+      const candidates = activeNames.filter(i => i !== winner && i !== lastShown);
       if (candidates.length === 0) break;
       const ri = candidates[Math.floor(Math.random() * candidates.length)];
       lastShown = ri; card.textContent = ri;
@@ -834,30 +901,50 @@ class RandomPicker {
   }
 
   addToHistory(winners) {
-    this.history.unshift({ picks: [...winners], total: this.items.length, time: Date.now() });
+    this.history.unshift({ picks: [...winners], total: this.getActiveItems().length, time: Date.now() });
     if (this.history.length > 50) this.history.pop();
     this.saveState(); this.renderHistory();
   }
   clearHistory() { this.history = []; this.saveState(); this.renderHistory(); }
 
-  render() { this.renderItems(); this.renderHistory(); this.updatePickButton(); }
+  render() { this.renderItems(); this.renderHistory(); this.updatePickButton(); this.updateActiveBadge(); }
   renderItems() {
     const g = this.dom.itemsGrid; g.innerHTML = '';
     if (this.items.length === 0) {
       g.innerHTML = '<div class="empty-state">Add some options above to get started</div>';
-      this.dom.itemCount.textContent = '0'; return;
+      this.dom.itemCount.textContent = '0';
+      this.dom.exclusionHint.classList.add('hidden');
+      return;
     }
     this.dom.itemCount.textContent = this.items.length;
+    this.dom.exclusionHint.classList.remove('hidden');
     this.items.forEach((item, i) => {
-      const chip = document.createElement('div'); chip.className = 'chip';
+      const chip = document.createElement('div');
+      chip.className = 'chip' + (item.excluded ? ' excluded' : '');
       chip.style.animationDelay = `${Math.min(i * 30, 300)}ms`;
-      const span = document.createElement('span'); span.textContent = item; span.title = item;
+      const span = document.createElement('span');
+      span.textContent = item.name;
+      span.title = item.excluded ? `${item.name} (excluded)` : item.name;
       const btn = document.createElement('button'); btn.innerHTML = '&times;';
-      btn.setAttribute('aria-label', `Remove ${item}`);
-      btn.addEventListener('click', () => this.removeItem(i));
+      btn.setAttribute('aria-label', `Remove ${item.name}`);
+      btn.addEventListener('click', (e) => { e.stopPropagation(); this.removeItem(i); });
+      chip.addEventListener('click', (e) => { if (!e.target.closest('button')) this.toggleExclude(i); });
       chip.appendChild(span); chip.appendChild(btn); g.appendChild(chip);
     });
     this.setPickCount(this.pickCount);
+  }
+  updateActiveBadge() {
+    const total = this.items.length;
+    const active = this.getActiveItems().length;
+    const excluded = total - active;
+    if (excluded > 0) {
+      this.dom.activeCount.textContent = `${active} active`;
+      this.dom.activeCount.classList.add('has-excluded');
+      this.dom.activeCount.style.display = '';
+    } else {
+      this.dom.activeCount.classList.remove('has-excluded');
+      this.dom.activeCount.style.display = 'none';
+    }
   }
   renderHistory() {
     const l = this.dom.historyList; l.innerHTML = '';
@@ -875,7 +962,7 @@ class RandomPicker {
     });
   }
   updatePickButton() {
-    const can = this.items.length > 0 && !this.isAnimating;
+    const can = this.getActiveItems().length > 0 && !this.isAnimating;
     this.dom.pickBtn.disabled = !can; this.dom.pickBtn.classList.toggle('ready', can);
   }
   showToast(msg) {
@@ -893,12 +980,21 @@ class RandomPicker {
   loadState() {
     try {
       const items = JSON.parse(localStorage.getItem('rp_items'));
-      if (Array.isArray(items)) this.items = items.filter(i => typeof i === 'string' && i.trim().length > 0);
+      if (Array.isArray(items)) {
+        this.items = items
+          .map(i => {
+            if (typeof i === 'string' && i.trim().length > 0) return { name: i.trim(), excluded: false };
+            if (i && typeof i.name === 'string' && i.name.trim().length > 0) return { name: i.name.trim(), excluded: !!i.excluded };
+            return null;
+          })
+          .filter(i => i !== null)
+          .filter((item, idx, arr) => arr.findIndex(x => x.name.toLowerCase() === item.name.toLowerCase()) === idx);
+      }
       const history = JSON.parse(localStorage.getItem('rp_history'));
       if (Array.isArray(history)) this.history = history.filter(h =>
         h && Array.isArray(h.picks) && h.picks.every(p => typeof p === 'string') && typeof h.total === 'number' && typeof h.time === 'number');
       const pc = JSON.parse(localStorage.getItem('rp_pickCount'));
-      if (typeof pc === 'number' && pc >= 1) this.pickCount = Math.min(pc, Math.max(1, this.items.length));
+      if (typeof pc === 'number' && pc >= 1) this.pickCount = Math.min(pc, Math.max(1, this.getActiveItems().length));
     } catch (e) { console.warn('Load failed:', e); this.items = []; this.history = []; }
   }
   sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
